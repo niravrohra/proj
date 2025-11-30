@@ -112,6 +112,7 @@ def normalize_Books(inputFile="books.csv", outputFile="normalized_books.csv"):
         df_authors_final = unique_authors_df[['Original_Name']].copy()
         df_authors_final = df_authors_final.rename(columns={'Original_Name': 'Name'})
         df_authors_final = df_authors_final.reset_index(drop=True)
+        df_authors_final['Name'] = df_authors_final['Name'].str.title()
         df_authors_final.insert(0, 'Author_id', range(1, len(df_authors_final) + 1))
 
         df_authors_final.to_csv("authors.csv", index=False)
@@ -137,7 +138,7 @@ def normalize_Books(inputFile="books.csv", outputFile="normalized_books.csv"):
 
 if __name__ == "__main__":
     print("normalizing borrowers...")
-    normalize_Borrowers(inputFile="borrowers.csv", outputFile="normalized_borrowers.csv")
+    normalize_Borrowers(inputFile="borrowers.csv", outputFile="borrower.csv")
     print("normalizing books...")
-    normalize_Books(inputFile="books.csv", outputFile="normalized_books.csv")
+    normalize_Books(inputFile="books.csv", outputFile="book.csv")
     print("Normalization complete.")
