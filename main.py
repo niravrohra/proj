@@ -1,7 +1,7 @@
 from db import get_connection
 from load_data import load_all
 from search import search_books
-from loans import checkout, find_open_loans, checkin
+from loans import checkout, find_open_loans, checkin, checkin_multiple
 from borrowers import create_borrower
 from fines import refresh_fines, list_outstanding_fines, pay_fines
 
@@ -13,7 +13,7 @@ Library CLI
 2) Search books
 3) Checkout book
 4) Find open loans
-5) Checkin book
+5) Checkin book(s)
 6) Create borrower
 7) Show outstanding fines
 8) Refresh fines
@@ -73,27 +73,76 @@ def handle_find_loans(conn):
     else:
         print("Invalid choice")
         return
+
     try:
         loans = find_open_loans(conn, **kwargs)
     except ValueError as err:
         print(err)
         return
+
     if not loans:
         print("No open loans found.")
         return
+
     for loan in loans:
         print(
-            f"Loan {loan['Loan_id']}: {loan['Isbn']} - {loan['Title']} | Card {loan['Card_id']} | Due {loan['Due_date']}"
+            f"Loan {loan['Loan_id']}: {loan['Isbn']} - {loan['Title']} "
+            f"| Card {loan['Card_id']} | Due {loan['Due_date']}"
         )
 
 
 def handle_checkin(conn):
-    loan_id = prompt("Loan ID to check in: ")
+    print("Search for open loans to check in:")
+    isbn = prompt("ISBN (or blank): ")
+    card = prompt("Card ID (or blank): ")
+    name = prompt("Borrower name (or blank): ")
+
+    kwargs = {}
+    if isbn.strip():
+        kwargs["isbn"] = isbn
+    if card.strip():
+        try:
+            kwargs["card_id"] = int(card)
+        except ValueError:
+            print("Invalid card ID.")
+            return
+    if name.strip():
+        kwargs["borrower_name"] = name
+
     try:
-        checkin(conn, int(loan_id))
-        print("Book checked in.")
+        loans = find_open_loans(conn, **kwargs)
     except ValueError as err:
-        print(f"Checkin failed: {err}")
+        print(err)
+        return
+
+    if not loans:
+        print("No matching open loans.")
+        return
+
+    print("\nMatching open loans:")
+    for loan in loans:
+        print(
+            f"{loan['Loan_id']}: {loan['Isbn']} — {loan['Title']} "
+            f"(Card {loan['Card_id']}) Due {loan['Due_date']}"
+        )
+
+    ids = prompt("Enter 1–3 Loan IDs to check in (comma-separated): ")
+
+    try:
+        loan_ids = [int(x.strip()) for x in ids.split(",") if x.strip()]
+    except ValueError:
+        print("Invalid input.")
+        return
+
+    if not (1 <= len(loan_ids) <= 3):
+        print("You must enter between 1 and 3 Loan IDs.")
+        return
+
+    try:
+        checkin_multiple(conn, loan_ids)
+        print("Check-in complete.")
+    except ValueError as err:
+        print(f"Check-in failed: {err}")
 
 
 def handle_create_borrower(conn):

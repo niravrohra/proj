@@ -79,7 +79,7 @@ def find_open_loans(
     isbn: Optional[str] = None,
     card_id: Optional[int] = None,
     borrower_name: Optional[str] = None,
-) -> List[dict]:
+):
     isbn = (isbn or "").strip()
     borrower_name = (borrower_name or "").strip()
     conditions = ["bl.Date_in IS NULL"]
@@ -124,7 +124,11 @@ def checkin(conn, loan_id: int) -> None:
             (today, loan_id),
         )
 
-        # Import locally to avoid circular dependency during module import.
         from fines import refresh_fines
-
         refresh_fines(conn, loan_id=loan_id)
+
+
+def checkin_multiple(conn, loan_ids: List[int]) -> None:
+    """Check in 1–3 loans in a single action."""
+    for loan_id in loan_ids:
+        checkin(conn, loan_id)
