@@ -1,33 +1,109 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="card" style="max-width: 600px; margin: 0 auto;">
+<div class="card">
     <div class="card-header">
-        <h2>Create New Borrower</h2>
+        <h2>👥 Borrower Management</h2>
     </div>
 
-    <form action="{{ url_for('manage_borrowers') }}" method="POST">
-        <div class="form-group">
-            <label class="form-label">Full Name *</label>
-            <input type="text" name="name" class="form-control" required>
+    <form action="{{ url_for('manage_borrowers') }}" method="POST" class="form-group">
+        <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Create New Borrower</h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label class="form-label">SSN</label>
+                <input type="text" name="ssn" class="form-control" required placeholder="123-45-6789">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="name" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Address</label>
+                <input type="text" name="address" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Phone (Optional)</label>
+                <input type="text" name="phone" class="form-control" placeholder="555-1234">
+            </div>
         </div>
 
-        <div class="form-group">
-            <label class="form-label">SSN (xxx-xx-xxxx) *</label>
-            <input type="text" name="ssn" class="form-control" required placeholder="000-00-0000">
-        </div>
-
-        <div class="form-group">
-            <label class="form-label">Address *</label>
-            <input type="text" name="address" class="form-control" required>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label">Phone</label>
-            <input type="text" name="phone" class="form-control" placeholder="(Optional)">
-        </div>
-
-        <button type="submit" class="btn btn-primary btn-block">Create Borrower</button>
+        <button type="submit" class="btn btn-primary">Create Borrower</button>
     </form>
+</div>
+
+<div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>📋 All Borrowers</h2>
+        <div style="color: var(--text-secondary);">
+            Page {{ page }} of {{ total_pages }} ({{ total_count }} total)
+        </div>
+    </div>
+
+    {% if borrowers %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Card ID</th>
+                    <th>SSN</th>
+                    <th>Name</th>
+                    <th>Address</th>
+                    <th>Phone</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for borrower in borrowers %}
+                <tr>
+                    <td><strong style="color: var(--accent);">{{ borrower.Card_id }}</strong></td>
+                    <td><code style="color: var(--text-secondary); font-size: 0.85rem;">{{ borrower.Ssn }}</code></td>
+                    <td><strong>{{ borrower.Bname }}</strong></td>
+                    <td style="color: var(--text-secondary);">{{ borrower.Address }}</td>
+                    <td style="color: var(--text-secondary);">{{ borrower.Phone or 'N/A' }}</td>
+                    <td>
+                        <form action="{{ url_for('delete_borrower', card_id=borrower.Card_id) }}" method="POST"
+                            style="display: inline;"
+                            onsubmit="return confirm('Are you sure you want to delete borrower {{ borrower.Bname }} (Card ID: {{ borrower.Card_id }})?');">
+                            <button type="submit" class="btn btn-danger"
+                                style="padding: 0.5rem 1rem; font-size: 0.875rem;">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Controls -->
+    {% if total_pages > 1 %}
+    <div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 2rem;">
+        {% if page > 1 %}
+        <a href="{{ url_for('manage_borrowers', page=1) }}" class="btn btn-primary">First</a>
+        <a href="{{ url_for('manage_borrowers', page=page-1) }}" class="btn btn-primary">Previous</a>
+        {% endif %}
+
+        {% for p in range([1, page-2]|max, [total_pages, page+2]|min + 1) %}
+        {% if p == page %}
+        <span class="btn btn-primary" style="background: var(--accent-hover); cursor: default;">{{ p }}</span>
+        {% else %}
+        <a href="{{ url_for('manage_borrowers', page=p) }}" class="btn btn-primary"
+            style="background: rgba(255, 107, 53, 0.3);">{{ p }}</a>
+        {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %} <a href="{{ url_for('manage_borrowers', page=page+1) }}" class="btn btn-primary">
+            Next</a>
+            <a href="{{ url_for('manage_borrowers', page=total_pages) }}" class="btn btn-primary">Last</a>
+            {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <p style="color: var(--text-secondary);">No borrowers found in the system.</p>
+    {% endif %}
 </div>
 {% endblock %}

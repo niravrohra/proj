@@ -12,11 +12,19 @@
             <div style="color: var(--text-secondary);">
                 <p><strong style="color: var(--text-primary);">Username:</strong> {{ user.Username }}</p>
                 {% if user.Card_id %}
+                {% if user.Bname %}
                 <p><strong style="color: var(--text-primary);">Borrower Card ID:</strong> {{ user.Card_id }}</p>
                 <p><strong style="color: var(--text-primary);">Name:</strong> {{ user.Bname }}</p>
                 <p><strong style="color: var(--text-primary);">Address:</strong> {{ user.Address }}</p>
                 {% if user.Phone %}
                 <p><strong style="color: var(--text-primary);">Phone:</strong> {{ user.Phone }}</p>
+                {% endif %}
+                {% else %}
+                <p style="color: var(--danger);">Linked to Card ID {{ user.Card_id }}, but borrower not found</p>
+                <form action="{{ url_for('unlink_borrower') }}" method="POST" style="margin-top: 1rem;">
+                    <button type="submit" class="btn btn-danger" style="padding: 0.5rem 1rem;">Unlink Broken
+                        Account</button>
+                </form>
                 {% endif %}
                 {% else %}
                 <p style="color: var(--warning);">No borrower account linked</p>
@@ -111,9 +119,34 @@
         {% endif %}
     </div>
     {% else %}
-    <div class="alert alert-error">
-        <strong>No Borrower Account Linked</strong><br>
-        Contact a librarian to link your user account with a borrower card.
+    <div class="card" style="max-width: 600px; margin: 0 auto;">
+        <div class="card-header">
+            <h3>🔗 Link Borrower Account</h3>
+        </div>
+
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+            You don't have a borrower account linked yet. If you already have a borrower card, you can link it here.
+        </p>
+
+        <form action="{{ url_for('link_borrower') }}" method="POST">
+            <div class="form-group">
+                <label class="form-label">Borrower Card ID</label>
+                <input type="number" name="card_id" class="form-control" required placeholder="Enter your Card ID">
+                <small style="color: var(--text-secondary); font-size: 0.875rem;">
+                    You can find your Card ID on your library card or ask a librarian
+                </small>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Link Borrower Account</button>
+        </form>
+
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">
+                <strong>Don't have a borrower card?</strong><br>
+                Visit the <a href="{{ url_for('manage_borrowers') }}" style="color: var(--accent);">Borrowers</a> page
+                to create a new borrower account.
+            </p>
+        </div>
     </div>
     {% endif %}
 </div>

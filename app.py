@@ -46,30 +46,19 @@ def register():
         username = request.form.get('username')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
+        ssn = request.form.get('ssn')
         full_name = request.form.get('full_name')
         address = request.form.get('address')
         phone = request.form.get('phone')
         
         if password != confirm_password:
             flash('Passwords do not match.', 'error')
-        elif not full_name or not address:
-            flash('Full name and address are required.', 'error')
+        elif not ssn or not full_name or not address:
+            flash('SSN, full name, and address are required.', 'error')
         else:
             try:
-                import random
-                import string
-                
-                # Generate a unique 9-digit alphanumeric SSN
-                def generate_ssn():
-                    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=9))
-                
                 with get_connection() as conn:
-                    # Generate unique SSN
-                    ssn = generate_ssn()
-                    while conn.execute("SELECT 1 FROM BORROWER WHERE Ssn = ?", (ssn,)).fetchone():
-                        ssn = generate_ssn()
-                    
-                    # Create borrower account
+                    # Create borrower account with user-provided SSN
                     card_id = borrowers.create_borrower(conn, ssn, full_name, address, phone)
                     
                     # Create user account linked to borrower
@@ -135,6 +124,55 @@ def profile():
                          loans=active_loans,
                          fines=outstanding_fines,
                          total_fines=total_fines)
+
+@app.route('/profile/link-borrower', methods=['POST'])
+@login_required
+def link_borrower():
+    card_id = request.form.get('card_id')
+    username = session.get('username')
+    
+    if not card_id:
+        flash('Card ID is required.', 'error')
+        return redirect(url_for('profile'))
+    
+    try:
+        card_id = int(card_id)
+        
+        with get_connection() as conn:
+            # Check if borrower exists
+            borrower = conn.execute(
+                "SELECT Card_id, Bname FROM BORROWER WHERE Card_id = ?",
+                (card_id,)
+            ).fetchone()
+            
+            if not borrower:
+                flash(f'Borrower with Card ID {card_id} not found.', 'error')
+                return redirect(url_for('profile'))
+            
+            # Check if this borrower is already linked to another user
+            existing_user = conn.execute(
+                "SELECT Username FROM USERS WHERE Card_id = ? AND Username != ?",
+                (card_id, username)
+            ).fetchone()
+            
+            if existing_user:
+                flash(f'This borrower account is already linked to another user.', 'error')
+                return redirect(url_for('profile'))
+            
+            # Link borrower to current user
+            conn.execute(
+                "UPDATE USERS SET Card_id = ? WHERE Username = ?",
+                (card_id, username)
+            )
+            conn.commit()
+            
+            flash(f'Successfully linked to borrower account: {borrower["Bname"]} (Card ID: {card_id})', 'success')
+    except ValueError:
+        flash('Invalid Card ID format.', 'error')
+    except Exception as e:
+        flash(f'Error linking borrower: {str(e)}', 'error')
+    
+    return redirect(url_for('profile'))
 
 @app.route('/')
 @login_required
@@ -290,8 +328,101 @@ def manage_borrowers():
             return redirect(url_for('manage_borrowers'))
         except Exception as e:
             flash(str(e), "error")
+    
+    # Pagination
+    page = int(request.args.get('page', 1))
+    per_page = 50
+    offset = (page - 1) * per_page
+    
+    # Get all borrowers with pagination
+    all_borrowers = []
+    total_count = 0
+    
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        
+        # Get total count
+        total_count = cursor.execute("SELECT COUNT(*) FROM BORROWER").fetchone()[0]
+        
+        # Get paginated results
+        cursor.execute("""
+            SELECT Card_id, Ssn, Bname, Address, Phone
+            FROM BORROWER
+            ORDER BY Card_id DESC
+            LIMIT ? OFFSET ?
+        """, (per_page, offset))
+        all_borrowers = [dict(row) for row in cursor.fetchall()]
+    
+    total_pages = (total_count + per_page - 1) // per_page
+    
+    # Get current user's card_id
+    user_card_id = None
+    username = session.get('username')
+    with get_connection() as conn:
+        row = conn.execute("SELECT Card_id FROM USERS WHERE Username = ?", (username,)).fetchone()
+        if row:
+            user_card_id = row[0]
 
-    return render_template('borrowers.html')
+    return render_template('borrowers.html', 
+                         borrowers=all_borrowers,
+                         page=page,
+                         total_pages=total_pages,
+                         total_count=total_count,
+                         user_card_id=user_card_id)
+
+@app.route('/borrowers/delete/<int:card_id>', methods=['POST'])
+@login_required
+def delete_borrower(card_id):
+    try:
+        username = session.get('username')
+        
+        with get_connection() as conn:
+            # Check if this borrower belongs to the current user
+            user_card_id = conn.execute(
+                "SELECT Card_id FROM USERS WHERE Username = ?",
+                (username,)
+            ).fetchone()
+            
+            if user_card_id and user_card_id[0] == card_id:
+                flash("You cannot delete your own borrower account.", "error")
+                return redirect(url_for('manage_borrowers'))
+            
+            # Check if borrower has active loans
+            active_loans = conn.execute(
+                "SELECT COUNT(*) FROM BOOK_LOANS WHERE Card_id = ? AND Date_in IS NULL",
+                (card_id,)
+            ).fetchone()[0]
+            
+            if active_loans > 0:
+                flash(f"Cannot delete borrower: {active_loans} active loan(s) exist.", "error")
+            else:
+                # Unlink any users linked to this borrower
+                conn.execute("UPDATE USERS SET Card_id = NULL WHERE Card_id = ?", (card_id,))
+                
+                # Delete borrower
+                conn.execute("DELETE FROM BORROWER WHERE Card_id = ?", (card_id,))
+                conn.commit()
+                flash(f"Borrower {card_id} deleted successfully.", "success")
+    except Exception as e:
+        flash(f"Error deleting borrower: {str(e)}", "error")
+    
+    return redirect(url_for('manage_borrowers'))
+
+@app.route('/profile/unlink-borrower', methods=['POST'])
+@login_required
+def unlink_borrower():
+    """Manually unlink a broken borrower account"""
+    username = session.get('username')
+    
+    try:
+        with get_connection() as conn:
+            conn.execute("UPDATE USERS SET Card_id = NULL WHERE Username = ?", (username,))
+            conn.commit()
+            flash("Borrower account unlinked successfully. You can now link a new account.", "success")
+    except Exception as e:
+        flash(f"Error unlinking borrower: {str(e)}", "error")
+    
+    return redirect(url_for('profile'))
 
 @app.route('/fines', methods=['GET', 'POST'])
 @login_required
