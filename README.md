@@ -7,10 +7,10 @@ A modern, full-featured library management system built with Flask, featuring us
 ### 🔐 User Authentication & Authorization
 - Secure login/logout with session management
 - **Role-based access control** with three user types:
-  - **Librarian**: Full access to all library management functions
-  - **Borrower**: Access to personal account and book search
+  - **Librarian**: Full access to all library management functions (cannot override restrictions)
+  - **Borrower**: Access to personal account and book search (default for new registrations)
   - **Superuser**: Librarian privileges + ability to override checkout restrictions
-- User registration with automatic borrower account creation
+- User registration with automatic borrower account creation (creates "borrower" role)
 - Password hashing using Werkzeug
 - Link existing borrower accounts to user profiles
 - Default admin account (username: `admin`, password: `admin`) with superuser privileges
@@ -213,16 +213,18 @@ The system uses SQLite with the following tables:
 
 ### User Roles
 
-**Librarian** (default for new accounts):
+**Librarian**:
 - Full access to all library management functions
 - Can search books, manage loans, borrowers, and fines
 - Cannot override checkout restrictions
+- Can be created manually or by database administrators
 
-**Borrower**:
+**Borrower** (default for new registrations):
 - Access to personal borrower homepage
 - Can view their own loans and fines
 - Can search books
 - Cannot access librarian functions
+- New accounts created through registration default to this role
 
 **Superuser** (admin account):
 - All librarian privileges
@@ -230,12 +232,13 @@ The system uses SQLite with the following tables:
   - Checkout books even if borrower has 3+ active loans
   - Checkout books even if borrower has unpaid fines
 - Visual indicators (⚡) shown throughout interface
+- Default admin account has this role
 
 ### Creating a New Account
 1. Click "Create Account" on login page
 2. Fill in username, password, SSN, name, and address
 3. A borrower account is automatically created and linked
-4. New accounts default to "borrower" role
+4. New accounts created through registration default to "borrower" role
 
 ### Searching for Books
 1. Navigate to "Search" tab (available to all users)

@@ -45,14 +45,14 @@
         </div>
     </div>
 
-    <form id="bulkCheckoutForm" method="POST" action="{{ url_for('bulk_checkout') }}" style="margin-bottom: 1rem;">
+    <div style="margin-bottom: 1rem;">
         <div style="display: flex; gap: 1rem; align-items: center;">
             <button type="button" class="btn btn-primary" onclick="checkoutSelected()" id="bulkCheckoutBtn" disabled>
                 Checkout Selected Books
             </button>
             <span id="selectedCount" style="color: var(--text-secondary);">0 selected</span>
         </div>
-    </form>
+    </div>
 
     <div class="table-responsive">
         <table class="table">
@@ -72,7 +72,7 @@
                 <tr>
                     <td>
                         {% if book.Status == 'IN' %}
-                        <input type="checkbox" name="selected_books" value="{{ book.Isbn }}" class="book-checkbox">
+                        <input type="checkbox" value="{{ book.Isbn }}" class="book-checkbox" data-isbn="{{ book.Isbn }}">
                         {% endif %}
                     </td>
                     <td><code style="color: var(--text-secondary); font-size: 0.85rem;">{{ book.Isbn }}</code></td>
@@ -176,7 +176,21 @@
         }
 
         checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', updateSelection);
+            checkbox.addEventListener('change', function(e) {
+                e.stopPropagation(); // Prevent any event bubbling
+                updateSelection();
+            });
+            // Prevent any accidental form submission
+            checkbox.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        });
+        
+        // Prevent form submission on Enter key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.classList.contains('book-checkbox')) {
+                e.preventDefault();
+            }
         });
     });
 
@@ -188,13 +202,14 @@
         }
 
         const cardId = prompt("Enter Borrower Card ID to checkout selected books:");
-        if (!cardId) {
+        if (!cardId || !cardId.trim()) {
             return;
         }
 
-        const form = document.getElementById('bulkCheckoutForm');
-        // Clear any existing hidden inputs
-        form.querySelectorAll('input[type="hidden"]').forEach(input => input.remove());
+        // Create a new form for submission
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "{{ url_for('bulk_checkout') }}";
         
         // Add ISBN inputs
         selected.forEach(checkbox => {
@@ -209,9 +224,11 @@
         const cardInput = document.createElement('input');
         cardInput.type = 'hidden';
         cardInput.name = 'card_id';
-        cardInput.value = cardId;
+        cardInput.value = cardId.trim();
         form.appendChild(cardInput);
 
+        // Add CSRF token if needed (Flask-WTF would require this, but we're using sessions)
+        document.body.appendChild(form);
         form.submit();
     }
 </script>

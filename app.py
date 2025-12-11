@@ -293,6 +293,7 @@ def search_books():
                 (SELECT bl.Card_id 
                  FROM BOOK_LOANS bl 
                  WHERE bl.Isbn = b.Isbn AND bl.Date_in IS NULL 
+                 ORDER BY bl.Loan_id DESC
                  LIMIT 1) AS Borrower_ID
             FROM BOOK b
             LEFT JOIN BOOK_AUTHORS ba ON b.Isbn = ba.Isbn
@@ -421,11 +422,16 @@ def bulk_checkout():
             if success_count > 0:
                 flash(f"Successfully checked out {success_count} book(s) to Card {card_id}.", "success")
             if errors:
-                flash("Some checkouts failed: " + "; ".join(errors), "error")
+                for error in errors:
+                    flash(error, "error")
     except Exception as e:
-        flash(str(e), "error")
+        flash(f"Error during bulk checkout: {str(e)}", "error")
     
-    return redirect(url_for('search_books'))
+    # Redirect back to search with current query parameters
+    query = request.args.get('q', '')
+    page = request.args.get('page', '1')
+    status = request.args.get('status', 'all')
+    return redirect(url_for('search_books', q=query, page=page, status=status))
 
 @app.route('/borrowers', methods=['GET', 'POST'])
 @login_required
