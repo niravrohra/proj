@@ -272,11 +272,18 @@ def search_books():
         total_count = cursor.execute(count_query, params).fetchone()[0]
         
         # Get paginated results with Borrower ID
+        # Use subquery for authors to avoid DISTINCT issue with GROUP_CONCAT in SQLite
+        # Keep JOINs in FROM clause for WHERE conditions, but use subquery for author aggregation
         results_query = f"""
-            SELECT
+            SELECT DISTINCT
                 b.Isbn,
                 b.Title,
-                COALESCE(GROUP_CONCAT(DISTINCT a.Name, ', '), '') AS Authors,
+                COALESCE((
+                    SELECT GROUP_CONCAT(a2.Name, ', ')
+                    FROM BOOK_AUTHORS ba2
+                    JOIN AUTHORS a2 ON ba2.Author_id = a2.Author_id
+                    WHERE ba2.Isbn = b.Isbn
+                ), '') AS Authors,
                 CASE
                     WHEN EXISTS (
                         SELECT 1 FROM BOOK_LOANS bl WHERE bl.Isbn = b.Isbn AND bl.Date_in IS NULL
@@ -291,7 +298,6 @@ def search_books():
             LEFT JOIN BOOK_AUTHORS ba ON b.Isbn = ba.Isbn
             LEFT JOIN AUTHORS a ON ba.Author_id = a.Author_id
             {where_clause}
-            GROUP BY b.Isbn, b.Title
             ORDER BY b.Title
             LIMIT ? OFFSET ?
         """
