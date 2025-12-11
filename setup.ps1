@@ -25,12 +25,20 @@ Write-Host "Installing required packages..." -ForegroundColor Yellow
 Write-Host "  - Flask (web framework)" -ForegroundColor Gray
 Write-Host "  - Werkzeug (password hashing)" -ForegroundColor Gray
 
-py -m pip install --upgrade pip --quiet
-py -m pip install Flask Werkzeug --quiet
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✓ Packages installed successfully" -ForegroundColor Green
-} else {
+try {
+    py -m pip install --upgrade pip --quiet
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to upgrade pip"
+    }
+    
+    py -m pip install Flask Werkzeug --quiet
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✓ Packages installed successfully" -ForegroundColor Green
+    } else {
+        Write-Host "✗ Failed to install packages" -ForegroundColor Red
+        exit 1
+    }
+} catch {
     Write-Host "✗ Failed to install packages" -ForegroundColor Red
     exit 1
 }
